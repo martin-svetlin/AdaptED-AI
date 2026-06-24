@@ -2,11 +2,18 @@ import Header from "../components/Header";
 import FeatureCard from "../components/FeatureCard";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { db } from "../firebase";
+import {
+  collection,
+  addDoc,
+  serverTimestamp
+} from "firebase/firestore";
 
 function TeacherDashboard() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadStep, setUploadStep] = useState("upload");
+  const [weekTitle, setWeekTitle] = useState("");
   
 
   const [topics, setTopics] = useState([
@@ -73,6 +80,49 @@ const extractTopics = async () => {
 
   setLoadingTopics(false);
 };
+
+
+const saveQuestionBank = async () => {
+
+  if (!weekTitle.trim()) {
+
+    alert("Please enter a week title.");
+
+    return;
+
+  }
+
+  try {
+
+    await addDoc(
+      collection(db, "questionBank"),
+      {
+        title: weekTitle,
+        topics: topics,
+        questions: generatedQuestions,
+        createdAt: serverTimestamp()
+      }
+    );
+
+    alert("Questions Saved!");
+
+    setShowUploadModal(false);
+    setSelectedFile(null);
+    setTopics([]);
+    setGeneratedQuestions({});
+    setUploadStep("upload");
+    setWeekTitle("");
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Failed to save.");
+
+  }
+
+};
+
 
 
 const generateQuestions = async () => {
@@ -172,19 +222,20 @@ const generateQuestions = async () => {
 
             <div onClick={() => navigate("/question-bank")}>
 
-                          <FeatureCard
-                              icon="❓"
-                              title="Question Bank"
-                              description="Review, edit and manage approved questions for each learning unit."
-                          />
+              <FeatureCard
+                icon="❓"
+                title="Question Bank"
+                description="Review, edit and manage approved questions for each learning unit."
+              />
+            </div>
 
-                      </div>
 
             <FeatureCard
               icon="📊"
               title="Student Analytics"
               description="Monitor student performance, learning gaps and leaderboard rankings."
             />
+
 
           </div>
 
@@ -224,16 +275,18 @@ const generateQuestions = async () => {
                   </label>
 
                   <input
-                    type="text"
-                    placeholder="e.g. Week 1 - Classical Ciphers"
-                    className="
-                      w-full
-                      border
-                      border-slate-300
-                      rounded-xl
-                      p-4
-                    "
-                  />
+  type="text"
+  placeholder="e.g. Week 1 - Classical Ciphers"
+  value={weekTitle}
+  onChange={(e) => setWeekTitle(e.target.value)}
+  className="
+    w-full
+    border
+    border-slate-300
+    rounded-xl
+    p-4
+  "
+/>
 
                 </div>
 
@@ -577,6 +630,7 @@ const generateQuestions = async () => {
       </button>
 
       <button
+        onClick={saveQuestionBank}
         className="
           bg-slate-900
           text-white

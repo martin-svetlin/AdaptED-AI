@@ -220,6 +220,7 @@ Example:
         "question": "...",
         "answer": "...",
         "explanation": "..."
+        "difficulty": "easy"
       }}
     ],
     "medium": [],
@@ -309,3 +310,111 @@ Example:
                         }
 
     return all_questions
+
+
+
+
+@app.post("/generate-more-questions")
+async def generate_more_questions(data: dict):
+
+    topic = data.get("topic")
+
+    easy_count = data.get("easyCount", 0)
+    medium_count = data.get("mediumCount", 0)
+    hard_count = data.get("hardCount", 0)
+
+    prompt = f"""
+You are an expert cryptography educator.
+
+Generate questions ONLY for:
+
+{topic}
+
+Generate:
+
+- Exactly {easy_count} Easy questions
+- Exactly {medium_count} Medium questions
+- Exactly {hard_count} Hard questions
+
+Requirements:
+
+- Avoid repeating previously generated questions. Be creative and generate different questions.
+
+- Use a balanced variety of formats.
+
+Possible formats:
+- Multiple Choice
+- Short Answer
+- Fill in the Blank
+- True/False
+- Scenario-Based
+
+- Do not generate all questions in the same format.
+
+Easy:
+- Definitions
+- Recognition
+- Basic understanding
+
+Medium:
+- Application of concepts
+- Small problem-solving tasks
+- Explanation questions
+
+Hard:
+- Analysis and reasoning
+- Security implications
+- Attack scenarios
+- Comparisons
+
+- Hard questions should be challenging but concise.
+- Avoid overly long or multi-part questions.
+
+Answers:
+- Maximum 1 sentence.
+
+Explanations:
+- Maximum 2 sentences.
+
+For multiple choice questions:
+- Include four options labelled A, B, C and D.
+- Store them in an "options" object.
+- Store the correct answer as:
+  "A", "B", "C" or "D".
+
+Return ONLY valid JSON.
+
+Example:
+
+{{
+  "Caesar Cipher": {{
+    "easy": [
+      {{
+        "question": "...",
+        "answer": "...",
+        "explanation": "..."
+        "difficulty": "easy"
+      }}
+    ],
+    "medium": [],
+    "hard": []
+  }},
+
+  "Vigenere Cipher": {{
+    "easy": [],
+    "medium": [],
+    "hard": []
+  }}
+}}
+"""
+
+    response = model.generate_content(prompt)
+
+    clean_text = (
+        response.text
+        .replace("```json", "")
+        .replace("```", "")
+        .strip()
+    )
+
+    return json.loads(clean_text)

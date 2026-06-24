@@ -1,8 +1,16 @@
 import Header from "../components/Header";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { db } from "../firebase";
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc
+} from "firebase/firestore";
 
 function QuestionBank() {
-  const [selectedWeek, setSelectedWeek] = useState(null);
+const [selectedWeek, setSelectedWeek] = useState(null);
 const [selectedTopic, setSelectedTopic] = useState(null);
 
 const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -11,35 +19,240 @@ const [easyCount, setEasyCount] = useState(2);
 const [mediumCount, setMediumCount] = useState(2);
 const [hardCount, setHardCount] = useState(2);
 
-  const weeks = [
-    {
-      id: 1,
-      title: "Week 1 - Classical Ciphers",
-      topics: [
-        "Caesar Cipher",
-        "Vigenere Cipher",
-        "Vernam Cipher",
-      ],
-    },
-    {
-      id: 2,
-      title: "Week 2 - Block Ciphers",
-      topics: [
-        "Feistel Network",
-        "DES",
-        "AES",
-      ],
-    },
-    {
-      id: 3,
-      title: "Week 3 - Public Key Cryptography",
-      topics: [
-        "RSA",
-        "Diffie-Hellman",
-        "Digital Signatures",
-      ],
-    },
-  ];
+const [weeks, setWeeks] = useState([]);
+
+const navigate = useNavigate();
+
+const topicData =
+  selectedWeek?.questions?.[selectedTopic];
+
+const easyQuestions =
+  topicData?.easy || [];
+
+const mediumQuestions =
+  topicData?.medium || [];
+
+const hardQuestions =
+  topicData?.hard || [];
+
+const totalQuestions =
+  easyQuestions.length +
+  mediumQuestions.length +
+  hardQuestions.length;
+
+useEffect(() => {
+
+  const loadQuestionBanks = async () => {
+
+    try {
+
+      const snapshot = await getDocs(
+        collection(db, "questionBank")
+      );
+
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setWeeks(data);
+
+    } catch (error) {
+
+      console.error(error);
+
+    }
+
+  };
+
+  loadQuestionBanks();
+
+}, []);
+
+
+const deleteQuestion = async (
+  difficulty,
+  questionIndex
+) => {
+
+  const confirmed = window.confirm(
+    "Delete this question?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+
+    const updatedQuestions = {
+      ...selectedWeek.questions
+    };
+
+    updatedQuestions[selectedTopic][difficulty] =
+      updatedQuestions[selectedTopic][difficulty]
+        .filter(
+          (_, index) => index !== questionIndex
+        );
+
+    await updateDoc(
+      doc(
+        db,
+        "questionBank",
+        selectedWeek.id
+      ),
+      {
+        questions: updatedQuestions
+      }
+    );
+
+    setSelectedWeek({
+      ...selectedWeek,
+      questions: updatedQuestions
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Failed to delete question.");
+
+  }
+
+};
+
+
+
+const editQuestion = async (
+  difficulty,
+  questionIndex
+) => {
+
+  const currentQuestion =
+    selectedWeek.questions
+      [selectedTopic]
+      [difficulty]
+      [questionIndex];
+
+  const updatedText = prompt(
+    "Edit Question",
+    currentQuestion.question
+  );
+
+  if (!updatedText) return;
+
+  try {
+
+    const updatedQuestions = {
+      ...selectedWeek.questions
+    };
+
+    updatedQuestions[selectedTopic][difficulty][questionIndex] = {
+      ...currentQuestion,
+      question: updatedText
+    };
+
+    await updateDoc(
+      doc(
+        db,
+        "questionBank",
+        selectedWeek.id
+      ),
+      {
+        questions: updatedQuestions
+      }
+    );
+
+    setSelectedWeek({
+      ...selectedWeek,
+      questions: updatedQuestions
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Failed to update question.");
+
+  }
+
+};
+
+
+const generateMoreQuestions = async () => {
+
+  try {
+
+    const response = await fetch(
+      "http://127.0.0.1:8000/generate-more-questions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          topic: selectedTopic,
+          easyCount,
+          mediumCount,
+          hardCount
+        })
+      }
+    );
+
+    const newQuestions =
+      await response.json();
+
+    const updatedQuestions = {
+      ...selectedWeek.questions
+    };
+
+    updatedQuestions[selectedTopic].easy.push(
+      ...newQuestions.easy
+    );
+
+    updatedQuestions[selectedTopic].medium.push(
+      ...newQuestions.medium
+    );
+
+    updatedQuestions[selectedTopic].hard.push(
+      ...newQuestions.hard
+    );
+
+    await updateDoc(
+      doc(
+        db,
+        "questionBank",
+        selectedWeek.id
+      ),
+      {
+        questions: updatedQuestions
+      }
+    );
+
+    setSelectedWeek({
+      ...selectedWeek,
+      questions: updatedQuestions
+    });
+
+    setShowGenerateModal(false);
+
+    setEasyCount(2);
+    setMediumCount(2);
+    setHardCount(2);
+
+    alert("Questions generated!");
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Failed to generate questions."
+    );
+
+  }
+
+};
+
+
 
   return (
     <>
@@ -57,10 +270,12 @@ const [hardCount, setHardCount] = useState(2);
             Manage approved questions and learning units.
           </p>
 
+          
+
           {!selectedWeek && (
 
             <div className="grid md:grid-cols-2 gap-6">
-
+              
               {weeks.map((week) => (
 
                 <div
@@ -83,8 +298,8 @@ const [hardCount, setHardCount] = useState(2);
                   </h2>
 
                   <p className="text-gray-500">
-                    {week.topics.length} Topics
-                  </p>
+                    {week.topics?.length || 0} Topics
+                    </p>
 
                 </div>
 
@@ -180,23 +395,23 @@ const [hardCount, setHardCount] = useState(2);
           </h2>
 
           <p className="text-gray-500">
-            Total Questions: 15
+            Total Questions: {totalQuestions}
           </p>
 
         </div>
 
         <button
-  onClick={() => setShowGenerateModal(true)}
-  className="
-    bg-slate-900
-    text-white
-    px-5
-    py-3
-    rounded-xl
-  "
->
-  Generate More Questions
-</button>
+          onClick={() => setShowGenerateModal(true)}
+          className="
+            bg-slate-900
+            text-white
+            px-5
+            py-3
+            rounded-xl
+          "
+        >
+          Generate More Questions
+        </button>
 
       </div>
 
@@ -204,22 +419,30 @@ const [hardCount, setHardCount] = useState(2);
 
         <div className="bg-slate-100 rounded-2xl p-4">
           <p className="text-gray-500 text-sm">Easy</p>
-          <p className="text-2xl font-bold">5</p>
+          <p className="text-2xl font-bold">
+            {easyQuestions.length}
+          </p>
         </div>
 
         <div className="bg-slate-100 rounded-2xl p-4">
           <p className="text-gray-500 text-sm">Medium</p>
-          <p className="text-2xl font-bold">5</p>
+          <p className="text-2xl font-bold">
+            {mediumQuestions.length}
+          </p>
         </div>
 
         <div className="bg-slate-100 rounded-2xl p-4">
           <p className="text-gray-500 text-sm">Hard</p>
-          <p className="text-2xl font-bold">5</p>
+          <p className="text-2xl font-bold">
+            {hardQuestions.length}
+          </p>
         </div>
 
         <div className="bg-slate-100 rounded-2xl p-4">
           <p className="text-gray-500 text-sm">Total</p>
-          <p className="text-2xl font-bold">15</p>
+          <p className="text-2xl font-bold">
+            {totalQuestions}
+          </p>
         </div>
 
       </div>
@@ -227,52 +450,82 @@ const [hardCount, setHardCount] = useState(2);
       <details className="bg-slate-100 rounded-2xl p-5 mb-4">
 
         <summary className="cursor-pointer font-semibold text-lg">
-          Easy Questions (5)
+          Easy Questions ({easyQuestions.length})
         </summary>
 
         <div className="mt-4 space-y-3">
 
-          {[1,2,3,4,5].map((q) => (
+          {easyQuestions.map((q, index) => (
 
             <div
-              key={q}
+              key={index}
               className="
                 bg-white
                 rounded-xl
                 p-4
-                flex
-                justify-between
-                items-center
               "
             >
 
-              <span>
-                Easy Question {q}
-              </span>
+              <div className="flex justify-between items-start mb-2">
 
-              <div className="flex gap-2">
+                <p className="font-semibold">
+                  {q.question}
+                </p>
 
-                <button>✏️</button>
+                <div className="flex gap-3 ml-4">
 
-                <button>🗑️</button>
+                  <button
+                    onClick={() =>
+                      editQuestion(
+                        "easy",
+                        index
+                      )
+                    }
+                    title="Edit Question"
+                  >
+                    ✏️
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      deleteQuestion(
+                        "easy",
+                        index
+                      )
+                    }
+                    title="Delete Question"
+                  >
+                    🗑️
+                  </button>
+
+                </div>
 
               </div>
+
+              {q.options && (
+                <div className="mb-3 ml-4 text-sm">
+
+                  <p>A. {q.options.A}</p>
+                  <p>B. {q.options.B}</p>
+                  <p>C. {q.options.C}</p>
+                  <p>D. {q.options.D}</p>
+                  
+                  </div>
+
+)}
+
+
+              <p className="text-sm mt-2">
+                <strong>Answer:</strong> {q.answer}
+              </p>
+
+              <p className="text-sm mt-1">
+                <strong>Explanation:</strong> {q.explanation}
+              </p>
 
             </div>
 
           ))}
-
-          <button
-            className="
-              border
-              border-slate-300
-              px-4
-              py-2
-              rounded-xl
-            "
-          >
-            + Generate More Easy Questions
-          </button>
 
         </div>
 
@@ -281,52 +534,82 @@ const [hardCount, setHardCount] = useState(2);
       <details className="bg-slate-100 rounded-2xl p-5 mb-4">
 
         <summary className="cursor-pointer font-semibold text-lg">
-          Medium Questions (5)
+          Medium Questions ({mediumQuestions.length})
         </summary>
 
         <div className="mt-4 space-y-3">
 
-          {[1,2,3,4,5].map((q) => (
+          {mediumQuestions.map((q, index) => (
 
             <div
-              key={q}
+              key={index}
               className="
                 bg-white
                 rounded-xl
                 p-4
-                flex
-                justify-between
-                items-center
               "
             >
 
-              <span>
-                Medium Question {q}
-              </span>
+              <div className="flex justify-between items-start mb-2">
 
-              <div className="flex gap-2">
+                <p className="font-semibold">
+                  {q.question}
+                </p>
 
-                <button>✏️</button>
+                <div className="flex gap-3 ml-4">
 
-                <button>🗑️</button>
+                  <button
+                    onClick={() =>
+                      editQuestion(
+                        "medium",
+                        index
+                      )
+                    }
+                    title="Edit Question"
+                  >
+                    ✏️
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      deleteQuestion(
+                        "medium",
+                        index
+                      )
+                    }
+                    title="Delete Question"
+                  >
+                    🗑️
+                  </button>
+
+                </div>
 
               </div>
+
+              {q.options && (
+                <div className="mb-3 ml-4 text-sm">
+
+                  <p>A. {q.options.A}</p>
+                  <p>B. {q.options.B}</p>
+                  <p>C. {q.options.C}</p>
+                  <p>D. {q.options.D}</p>
+                  
+                  </div>
+
+)}             
+
+
+              <p className="text-sm mt-2">
+                <strong>Answer:</strong> {q.answer}
+              </p>
+
+              <p className="text-sm mt-1">
+                <strong>Explanation:</strong> {q.explanation}
+              </p>
 
             </div>
 
           ))}
-
-          <button
-            className="
-              border
-              border-slate-300
-              px-4
-              py-2
-              rounded-xl
-            "
-          >
-            + Generate More Medium Questions
-          </button>
 
         </div>
 
@@ -335,52 +618,82 @@ const [hardCount, setHardCount] = useState(2);
       <details className="bg-slate-100 rounded-2xl p-5">
 
         <summary className="cursor-pointer font-semibold text-lg">
-          Hard Questions (5)
+          Hard Questions ({hardQuestions.length})
         </summary>
 
         <div className="mt-4 space-y-3">
 
-          {[1,2,3,4,5].map((q) => (
+          {hardQuestions.map((q, index) => (
 
             <div
-              key={q}
+              key={index}
               className="
                 bg-white
                 rounded-xl
                 p-4
-                flex
-                justify-between
-                items-center
               "
             >
 
-              <span>
-                Hard Question {q}
-              </span>
+              <div className="flex justify-between items-start mb-2">
 
-              <div className="flex gap-2">
+                <p className="font-semibold">
+                  {q.question}
+                </p>
 
-                <button>✏️</button>
+                <div className="flex gap-3 ml-4">
 
-                <button>🗑️</button>
+                  <button
+                    onClick={() =>
+                      editQuestion(
+                        "hard",
+                        index
+                      )
+                    }
+                    title="Edit Question"
+                  >
+                    ✏️
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      deleteQuestion(
+                        "hard",
+                        index
+                      )
+                    }
+                    title="Delete Question"
+                  >
+                    🗑️
+                  </button>
+
+                </div>
 
               </div>
+
+              {q.options && (
+                <div className="mb-3 ml-4 text-sm">
+
+                  <p>A. {q.options.A}</p>
+                  <p>B. {q.options.B}</p>
+                  <p>C. {q.options.C}</p>
+                  <p>D. {q.options.D}</p>
+                  
+                  </div>
+
+)} 
+
+
+              <p className="text-sm mt-2">
+                <strong>Answer:</strong> {q.answer}
+              </p>
+
+              <p className="text-sm mt-1">
+                <strong>Explanation:</strong> {q.explanation}
+              </p>
 
             </div>
 
           ))}
-
-          <button
-            className="
-              border
-              border-slate-300
-              px-4
-              py-2
-              rounded-xl
-            "
-          >
-            + Generate More Hard Questions
-          </button>
 
         </div>
 
@@ -527,24 +840,18 @@ const [hardCount, setHardCount] = useState(2);
           Cancel
         </button>
 
-        <button
-          onClick={() => {
-            alert(
-              `Generating ${easyCount} Easy, ${mediumCount} Medium and ${hardCount} Hard questions`
-            );
-
-            setShowGenerateModal(false);
-          }}
-          className="
-            bg-slate-900
-            text-white
-            px-5
-            py-2
-            rounded-xl
-          "
-        >
-          Generate
-        </button>
+              <button
+                onClick={generateMoreQuestions}
+                className="
+    bg-slate-900
+    text-white
+    px-5
+    py-2
+    rounded-xl
+  "
+              >
+                Generate
+              </button>
 
       </div>
 
