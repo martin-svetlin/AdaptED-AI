@@ -65,38 +65,36 @@ function StudentCourses() {
 
               <div>
 
-                <h2 className="text-xl font-semibold mb-6">
-                  Analytics
-                </h2>
+                <div className="h-[28px] mb-6"></div>
 
                 <div
-                  className="
-                    bg-slate-50
-                    border
-                    border-slate-200
-                    rounded-3xl
-                    p-8
-                    hover:shadow-lg
-                    hover:-translate-y-1
-                    transition-all
-                    cursor-pointer
-                    h-64
-                  "
-                >
+                className="
+                  bg-slate-50
+                  border
+                  border-slate-200
+                  rounded-3xl
+                  p-8
+                  hover:shadow-lg
+                  hover:-translate-y-1
+                  transition-all
+                  cursor-pointer
+                  h-64
+                  flex
+                  flex-col
+                  items-center
+                  justify-center
+                "
+              >
 
-                  <div className="text-4xl mb-4">
-                    📈
-                  </div>
-
-                  <h3 className="text-2xl font-semibold mb-2">
-                    My Progress
-                  </h3>
-
-                  <p className="text-gray-500">
-                    View your performance, learning gaps and overall progress.
-                  </p>
-
+                <div className="text-6xl mb-4">
+                  +
                 </div>
+
+                <h3 className="text-2xl font-semibold">
+                  Course Enroll
+                </h3>
+
+              </div>
 
               </div>
 

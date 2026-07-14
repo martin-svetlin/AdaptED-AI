@@ -21,7 +21,11 @@ const [hardCount, setHardCount] = useState(2);
 
 const [weeks, setWeeks] = useState([]);
 
+const [generatingMore, setGeneratingMore] = useState(false);
+
 const navigate = useNavigate();
+
+
 
 const topicData =
   selectedWeek?.questions?.[selectedTopic];
@@ -39,6 +43,8 @@ const totalQuestions =
   easyQuestions.length +
   mediumQuestions.length +
   hardQuestions.length;
+
+
 
 useEffect(() => {
 
@@ -68,6 +74,11 @@ useEffect(() => {
   loadQuestionBanks();
 
 }, []);
+
+
+
+
+
 
 
 const deleteQuestion = async (
@@ -108,6 +119,16 @@ const deleteQuestion = async (
       ...selectedWeek,
       questions: updatedQuestions
     });
+
+    setGeneratingMore(false);
+
+    setShowGenerateModal(false);
+
+    setEasyCount(2);
+    setMediumCount(2);
+    setHardCount(2);
+
+    alert("Questions generated!");
 
   } catch (error) {
 
@@ -179,6 +200,8 @@ const editQuestion = async (
 
 const generateMoreQuestions = async () => {
 
+  setGeneratingMore(true);
+
   try {
 
     const response = await fetch(
@@ -199,6 +222,9 @@ const generateMoreQuestions = async () => {
 
     const newQuestions =
       await response.json();
+
+      console.log("Returned from backend:");
+      console.log(newQuestions);
 
     const updatedQuestions = {
       ...selectedWeek.questions
@@ -242,6 +268,9 @@ const generateMoreQuestions = async () => {
 
   } catch (error) {
 
+    setGeneratingMore(false);
+
+    console.error("Generate More Error:");
     console.error(error);
 
     alert(
@@ -842,15 +871,19 @@ const generateMoreQuestions = async () => {
 
               <button
                 onClick={generateMoreQuestions}
+                disabled={generatingMore}
                 className="
     bg-slate-900
     text-white
     px-5
     py-2
     rounded-xl
+    disabled:opacity-50
   "
               >
-                Generate
+                {generatingMore
+                  ? "Generating Questions..."
+                  : "Generate"}
               </button>
 
       </div>

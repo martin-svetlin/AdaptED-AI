@@ -417,4 +417,122 @@ Example:
         .strip()
     )
 
-    return json.loads(clean_text)
+    result = json.loads(clean_text)
+
+    if topic in result:
+        return result[topic]
+
+    return result
+
+
+@app.post("/grade-written-answers")
+async def grade_written_answers(data: dict):
+
+    questions = data.get("questions", [])
+
+    if not questions:
+        return {"results": []}
+
+    questions_block = ""
+
+    for q in questions:
+
+        questions_block += f"""
+---
+Question ID: {q.get("id")}
+Question Type: {q.get("questionType", "")}
+Question: {q.get("question", "")}
+Expected Answer: {q.get("expectedAnswer", "")}
+Explanation: {q.get("explanation", "")}
+Student Answer: {q.get("studentAnswer", "")}
+"""
+
+    prompt = f"""
+You are grading university-level cybersecurity and cryptography exam
+answers.
+
+You will be given a list of written-response questions (Short Answer,
+Fill in the Blank, or Scenario-Based), each with the question text, the
+expected answer, a short explanation, and the student's actual answer.
+
+For each question, grade the student's answer against the expected
+answer and explanation using the following rules:
+
+- Grade the semantic meaning of the student's answer, not exact
+  wording. A correctly-expressed idea in different words is still
+  correct.
+- Accept equivalent terminology and reasonable paraphrasing.
+- Ignore spelling and grammar mistakes unless they change the meaning
+  of the answer.
+- Award partial credit when the answer is incomplete, only partially
+  correct, or captures some but not all of the expected concept.
+- Never invent information that is not present in the student's
+  answer. Do not give credit for correct ideas the student did not
+  actually write.
+- Be consistent: apply the same grading standard across every question
+  and every student.
+
+Each question's outcome must be exactly one of these three values:
+
+- "correct"
+- "partial"
+- "incorrect"
+
+Do not return any other outcome value, and do not return a numeric
+score or percentage - the application converts outcomes into marks
+itself.
+
+For each question also write one short sentence of feedback explaining
+the grading decision, written directly to the student (for example:
+"Your answer correctly identifies the confidentiality goal but does
+not mention integrity.").
+
+Return ONLY a valid JSON array. Each object in the array must have
+exactly these three fields: "id" (matching the Question ID given
+below), "outcome", and "feedback". Do not include markdown formatting,
+code fences, or any text outside the JSON array.
+
+Questions to grade:
+{questions_block}
+"""
+
+    try:
+
+        response = model.generate_content(prompt)
+
+        clean_text = (
+            response.text
+            .replace("```json", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        results = json.loads(clean_text)
+
+        return {"results": results}
+
+    except Exception as e:
+
+        print("Written answer grading failed:")
+        print(e)
+
+        try:
+            print("RAW RESPONSE:")
+            print(response.text)
+        except Exception:
+            pass
+
+        # Grading failed outright (bad JSON, API error, etc). Fall back
+        # to marking every question incorrect rather than blocking quiz
+        # submission entirely - the failure is visible in the server
+        # logs, and the student still gets a result.
+        return {
+            "results": [
+                {
+                    "id": q.get("id"),
+                    "outcome": "incorrect",
+                    "feedback": "This answer could not be graded automatically."
+                }
+                for q in questions
+            ]
+        }

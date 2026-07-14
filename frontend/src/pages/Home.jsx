@@ -1,7 +1,39 @@
 import Header from "../components/Header";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import TeacherLoginModal from "../components/TeacherLoginModal";
+import StudentLoginModal from "../components/StudentLoginModal";
+import { useAuth } from "../context/AuthContext";
 
 function Home() {
+
+  const { user, role } = useAuth();
+
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
+
+  const [showStudentModal, setShowStudentModal] = useState(false);
+
+  const navigate = useNavigate();
+
+  // If already authenticated as the matching role, skip the login
+  // modal entirely and go straight in - the modal should only ever
+  // appear when there's no authenticated user for that role.
+  const handleTeacherClick = () => {
+    if (user && role === "teacher") {
+      navigate("/teacher-courses");
+    } else {
+      setShowTeacherModal(true);
+    }
+  };
+
+  const handleStudentClick = () => {
+    if (user && role === "student") {
+      navigate("/student-courses");
+    } else {
+      setShowStudentModal(true);
+    }
+  };
+
   return (
     <>
       <Header />
@@ -23,7 +55,7 @@ function Home() {
 
             <div className="grid md:grid-cols-2 gap-6 max-w-3xl">
 
-              <Link to="/teacher-courses">
+              <div onClick={handleTeacherClick}>
 
                 <div
                   className="
@@ -54,9 +86,9 @@ function Home() {
 
                 </div>
 
-              </Link>
+              </div>
 
-              <Link to="/student-courses">
+              <div onClick={handleStudentClick}>
 
                 <div
                   className="
@@ -87,7 +119,7 @@ function Home() {
 
                 </div>
 
-              </Link>
+              </div>
 
             </div>
 
@@ -96,6 +128,31 @@ function Home() {
         </div>
 
       </div>
+
+      {showTeacherModal && (
+
+        <TeacherLoginModal
+          onClose={() => setShowTeacherModal(false)}
+          onSuccess={() => {
+            setShowTeacherModal(false);
+            navigate("/teacher-courses");
+          }}
+        />
+
+      )}
+
+      {showStudentModal && (
+
+        <StudentLoginModal
+          onClose={() => setShowStudentModal(false)}
+          onSuccess={() => {
+            setShowStudentModal(false);
+            navigate("/student-courses");
+          }}
+        />
+
+      )}
+
     </>
   );
 }

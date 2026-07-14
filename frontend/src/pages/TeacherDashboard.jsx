@@ -1,20 +1,41 @@
 import Header from "../components/Header";
 import FeatureCard from "../components/FeatureCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
   collection,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  getDocs,
+  query,
+  where
 } from "firebase/firestore";
 
 function TeacherDashboard() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadStep, setUploadStep] = useState("upload");
+
   const [weekTitle, setWeekTitle] = useState("");
+
+  const [generatedQuestions, setGeneratedQuestions] = useState({});
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+
+  const [expandedTopic, setExpandedTopic] = useState(null);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+
+  const [learningUnits, setLearningUnits] = useState(0);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [studentCount, setStudentCount] = useState(0);
   
+  const navigate = useNavigate();
+
+  useEffect(() => {
+
+    loadDashboardStats();
+
+  }, []);
 
   const [topics, setTopics] = useState([
     "Caesar Cipher",
@@ -23,12 +44,10 @@ function TeacherDashboard() {
     "Feistel Network",
   ]);
 
-const [generatedQuestions, setGeneratedQuestions] = useState({});
-const [loadingQuestions, setLoadingQuestions] = useState(false);
-const [expandedTopic, setExpandedTopic] = useState(null);
-const [loadingTopics, setLoadingTopics] = useState(false);
 
-const navigate = useNavigate();
+
+
+
 
 const extractTopics = async () => {
 
@@ -161,6 +180,42 @@ const generateQuestions = async () => {
   setLoadingQuestions(false);
 };
 
+const loadDashboardStats = async () => {
+
+  const snapshot = await getDocs(
+    collection(db, "questionBank")
+  );
+
+  setLearningUnits(snapshot.size);
+
+  let totalQuestions = 0;
+
+  snapshot.forEach((doc) => {
+
+    const data = doc.data();
+
+    if (!data.questions) return;
+
+    Object.values(data.questions).forEach((topic) => {
+
+      totalQuestions += topic.easy?.length || 0;
+      totalQuestions += topic.medium?.length || 0;
+      totalQuestions += topic.hard?.length || 0;
+
+    });
+
+  });
+
+  setQuestionCount(totalQuestions);
+
+  const studentsSnapshot = await getDocs(
+    query(collection(db, "users"), where("role", "==", "student"))
+  );
+
+  setStudentCount(studentsSnapshot.size);
+
+};  
+
   return (
     <>
       <Header />
@@ -180,11 +235,11 @@ const generateQuestions = async () => {
 
             <div className="bg-white rounded-3xl shadow-md p-6">
               <p className="text-gray-500 text-sm mb-2">
-                Learning Units
+                Learning Weeks
               </p>
 
               <h2 className="text-4xl font-bold">
-                3
+                {learningUnits}
               </h2>
             </div>
 
@@ -194,7 +249,7 @@ const generateQuestions = async () => {
               </p>
 
               <h2 className="text-4xl font-bold">
-                120
+                {questionCount}
               </h2>
             </div>
 
@@ -204,7 +259,7 @@ const generateQuestions = async () => {
               </p>
 
               <h2 className="text-4xl font-bold">
-                15
+                {studentCount}
               </h2>
             </div>
 
@@ -230,11 +285,15 @@ const generateQuestions = async () => {
             </div>
 
 
-            <FeatureCard
-              icon="📊"
-              title="Student Analytics"
-              description="Monitor student performance, learning gaps and leaderboard rankings."
-            />
+            <div onClick={() => navigate("/teacher-analytics")}>
+
+              <FeatureCard
+                icon="📊"
+                title="Student Analytics"
+                description="Monitor student performance, learning gaps and leaderboard rankings."
+              />
+
+            </div>
 
 
           </div>
